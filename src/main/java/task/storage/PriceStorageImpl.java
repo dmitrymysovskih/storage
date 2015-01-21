@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Created by Mysovskih on 20.01.15.
  */
 public class PriceStorageImpl implements PriceStorage {
+    public static final int STUB_VAlUE = -1;
+
     private long window;
     private Buffer index;
     private AtomicInteger quotesSize;
@@ -32,15 +34,15 @@ public class PriceStorageImpl implements PriceStorage {
     @Override
     public double getPrice(String quoteId) {
         if (!quotes.containsKey(quoteId)){
-            return -1;
+            return STUB_VAlUE;
         }
         int quote = quotes.get(quoteId);
         int offset = index.getCurrentOffset();
-        if (offset < 0) return 0;
+        if (offset < 0) return STUB_VAlUE;
         for (; offset >= 0; offset-=index.ITEM_SIZE){
             if(index.getId(offset) == quote) return index.getValue(offset);
         }
-        return -1;
+        return STUB_VAlUE;
     }
 
     @Override
@@ -53,30 +55,30 @@ public class PriceStorageImpl implements PriceStorage {
         int count = 0;
         long lastTime = System.currentTimeMillis() - window;
         int offset = index.getCurrentOffset();
-        if (offset < 0) return 0;
-        for (; offset >= 0; offset-=index.ITEM_SIZE){
+        if (offset < 0) return STUB_VAlUE;
+        for (; offset >= 0; offset -= index.ITEM_SIZE){
             if (index.getTime(offset) < lastTime){
-                return count > 0 ? sum/count : 0;
+                return count > 0 ? sum/count : STUB_VAlUE;
             }
             if (index.getId(offset) == quote){
                 sum += index.getValue(offset);
                 count++;
             }
         }
-        return count > 0 ? sum/count : 0;
+        return count > 0 ? sum/count : STUB_VAlUE;
     }
 
     @Override
     public double getMaxPrice(String quoteId) {
         if (!quotes.containsKey(quoteId)){
-            return -1;
+            return STUB_VAlUE;
         }
         int quote = quotes.get(quoteId);
         double max = 0;
         long lastTime = System.currentTimeMillis() - window;
         int offset = index.getCurrentOffset();
-        if (offset < 0) return 0;
-        for (; offset >= 0; offset-=index.ITEM_SIZE){
+        if (offset < 0) return STUB_VAlUE;
+        for (; offset >= 0; offset -= index.ITEM_SIZE){
             if (index.getTime(offset) < lastTime){
                 return max;
             }
