@@ -18,84 +18,69 @@ import static junit.framework.Assert.assertTrue;
  */
 public class StrorageMT {
    @Test
-   public void TestAll(){
-       PriceStorageImpl storage = new PriceStorageImpl();
-       ExecutorService executorService = Executors.newFixedThreadPool(4);
-       for (int i = 0; i < 2000; i++){
-            executorService.execute(getRunnableWriter(i, storage));
-       }
-       executorService.shutdown();
-       try {
-           executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-       } catch (InterruptedException e) {
-           e.printStackTrace();
-       }
+   public void testAllInFixedPool(){
+       ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+       executeAll(executorService);
    }
 
-    private static Runnable getRunnableWriter(final int i, final PriceStorageImpl storage){
+    @Test
+    public void testAllInCachedPool(){
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        executeAll(executorService);
+    }
 
-        final String quoteId = String.valueOf(i % 5);
-        if (i % 2 == 0){
-            final double value = Math.random();
-            return new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Thread.sleep((long) (10*Math.random()));
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    System.out.println(String.format("put %f in %s", value, quoteId));
-                    storage.updatePrice(quoteId, value);
-                }
-            };
-        } else {
-            final double value = Math.random();
-            if (value < 0.3){
-                return new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Thread.sleep((long) (10*Math.random()));
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        double val = storage.getAveragePrice(quoteId);
-                        System.out.println(String.format("avg in quote %s is %f", quoteId, val));
-                    }
-                };
-            }
-            if (value >= 0.3 && value < 0.6){
-                return new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Thread.sleep((long) (10*Math.random()));
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        double val = storage.getMaxPrice(quoteId);
-                        System.out.println(String.format("max in quote %s is %f", quoteId, val));
-                    }
-                };
-            } else return new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Thread.sleep((long) (10*Math.random()));
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    double val = storage.getPrice(quoteId);
-                    System.out.println(String.format("last in quote %s is %f", quoteId, val));
-                }
-            };
-
+    private static void executeAll(ExecutorService executorService){
+        int numberOfRunnable = 2000;
+        int window = 1000*60;
+        PriceStorageImpl storage = new PriceStorageImpl(window, numberOfRunnable);
+        for (int i = 0; i < numberOfRunnable; i++){
+            executorService.execute(getRandomRunnable(i, storage));
+        }
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            e.printStackTrace();
         }
     }
+
+    private static Runnable getRandomRunnable(final int i, final PriceStorageImpl storage){
+        final String quoteId = String.valueOf(i % 5);
+        final double value = Math.random();
+        return new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep((long) (10*Math.random()));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    e.printStackTrace();
+                }
+                if (i % 2 == 0){
+                    System.out.println(String.format("put %f in %s", value, quoteId));
+                    storage.updatePrice(quoteId, value);
+                } else {
+                    if (value < 0.3){
+                        double val = storage.getAveragePrice(quoteId);
+                        System.out.println(String.format("avg in quote %s is %f", quoteId, val));
+                    } else if (value >= 0.3 && value < 0.6){
+                        double val = storage.getMaxPrice(quoteId);
+                        System.out.println(String.format("max in quote %s is %f", quoteId, val));
+                    } else {
+                        double val = storage.getPrice(quoteId);
+                        System.out.println(String.format("last in quote %s is %f", quoteId, val));
+                    }
+                }
+            }
+        };
+    }
+
     @Test
-    public void test(){
-        PriceStorageImpl storage = new PriceStorageImpl();
+    public void testOperationsOneThread(){
+        int numberOfRunnable = 2000;
+        int window = 1000*60;
+        PriceStorageImpl storage = new PriceStorageImpl(window, numberOfRunnable);
         double max = 0;
         double sum = 0;
         double previous = -1;

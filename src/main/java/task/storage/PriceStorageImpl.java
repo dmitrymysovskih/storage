@@ -8,10 +8,17 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Created by Mysovskih on 20.01.15.
  */
 public class PriceStorageImpl implements PriceStorage {
-    private long WINDOW = 1000*60;
-    private AtomicInteger quotesSize = new AtomicInteger(0);
-    private Map<String, Integer> quotes = new HashMap<String, Integer>();
-    private Buffer index = new Buffer();
+    private long window;
+    private Buffer index;
+    private AtomicInteger quotesSize;
+    private Map<String, Integer> quotes;
+
+    public PriceStorageImpl(int windowLength, int itemLength){
+        quotesSize = new AtomicInteger(0);
+        quotes = new HashMap<String, Integer>();
+        index = new Buffer(itemLength);
+        window = windowLength;
+    }
 
     @Override
     public void updatePrice(String quoteId, double price) {
@@ -28,12 +35,9 @@ public class PriceStorageImpl implements PriceStorage {
             return -1;
         }
         int quote = quotes.get(quoteId);
-        int offset = 0;
-        int sizeOfBuffer = index.size.get();
-        if (sizeOfBuffer == 0) return 0;
-        sizeOfBuffer--;
-        for (int i = sizeOfBuffer; i >= 0; i--){
-            offset = Buffer.positionToOffset(i);
+        int offset = index.getCurrentOffset();
+        if (offset < 0) return 0;
+        for (; offset >= 0; offset-=index.ITEM_SIZE){
             if(index.getId(offset) == quote) return index.getValue(offset);
         }
         return -1;
@@ -47,13 +51,10 @@ public class PriceStorageImpl implements PriceStorage {
         int quote = quotes.get(quoteId);
         double sum = 0;
         int count = 0;
-        int offset = 0;
-        long lastTime = System.currentTimeMillis() - WINDOW;
-        int sizeOfBuffer = index.size.get();
-        if (sizeOfBuffer == 0) return 0;
-        sizeOfBuffer--;
-        for (int i = sizeOfBuffer; i >= 0; i--){
-            offset = Buffer.positionToOffset(i);
+        long lastTime = System.currentTimeMillis() - window;
+        int offset = index.getCurrentOffset();
+        if (offset < 0) return 0;
+        for (; offset >= 0; offset-=index.ITEM_SIZE){
             if (index.getTime(offset) < lastTime){
                 return count > 0 ? sum/count : 0;
             }
@@ -72,13 +73,10 @@ public class PriceStorageImpl implements PriceStorage {
         }
         int quote = quotes.get(quoteId);
         double max = 0;
-        int offset = 0;
-        long lastTime = System.currentTimeMillis() - WINDOW;
-        int sizeOfBuffer = index.size.get();
-        if (sizeOfBuffer == 0) return 0;
-        sizeOfBuffer--;
-        for (int i = sizeOfBuffer; i >= 0; i--){
-            offset = Buffer.positionToOffset(i);
+        long lastTime = System.currentTimeMillis() - window;
+        int offset = index.getCurrentOffset();
+        if (offset < 0) return 0;
+        for (; offset >= 0; offset-=index.ITEM_SIZE){
             if (index.getTime(offset) < lastTime){
                 return max;
             }
